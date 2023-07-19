@@ -1,11 +1,13 @@
 <template>
     <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-        <!--        <div class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">-->
-        <!--            <svg class="animate-spin -ml-1 mr-3 h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">-->
-        <!--                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>-->
-        <!--                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>-->
-        <!--            </svg>-->
-        <!--        </div>-->
+        <div v-if="loadGif" class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">
+            <svg class="animate-spin -ml-1 mr-3 h-12 w-12 text-white" fill="none" viewBox="0 0 24 24"
+                 xmlns="http://www.w3.org/2000/svg">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      fill="currentColor"></path>
+            </svg>
+        </div>
         <div class="container">
             <section>
                 <div class="flex">
@@ -24,18 +26,13 @@
                                 placeholder="Например DOGE"
                             />
                         </div>
-                        <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-                            <span @click="tiker='BTC'" class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                              BTC
-                            </span>
-                            <span @click="tiker='DOGE'" class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                              DOGE
-                            </span>
-                            <span @click="tiker='BCH'" class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                              BCH
-                            </span>
-                            <span @click="tiker='CHD'" class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                              CHD
+                        <div v-if="tikerHelper.length" class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
+                            <span
+                                v-for="tkr in tikerHelper"
+                                :key="tkr"
+                                @click="addTikerFromTikerHelper(tkr)"
+                                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
+                              {{tkr}}
                             </span>
                         </div>
                         <div v-if="checkSimilarTiker" class="text-sm text-red-600">Такой тикер уже добавлен</div>
@@ -65,12 +62,39 @@
                 </button>
             </section>
 
+            <div>
+                <div>
+                    Фильтр:
+                    <input v-model="filter">
+                </div>
+                <button
+                    @click="page -= 1"
+                    :disabled="page === 1"
+                    :class="{'opacity-50' : page === 1}"
+                    type="button"
+                    class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                    Назад
+                </button>
+
+                <button
+                    @click="page += 1"
+                    :disabled="!hasNextPage"
+                    :class="{'opacity-50' : !hasNextPage}"
+                    type="button"
+                    class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                    Вперед
+                </button>
+            </div>
+            {{page}} / {{Math.ceil(filteredTikers.length / 6)}}
+
             <template v-if="tikers.length !== 0">
                 <hr class="w-full border-t border-gray-600 my-4" />
                 <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
                     <div
-                        v-for="tiker in tikers"
-                        :key="tiker.name"
+                        v-for="tiker in pagindatedTikers"
+                        :key="tiker"
                         @click="selectTiker=tiker"
                         @mouseover="selOverTiker=tiker"
                         @mouseleave="selOverTiker=null"
@@ -80,7 +104,10 @@
                         }"
                         class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
                     >
-                        <div class="px-4 py-5 sm:p-6 text-center">
+                        <div
+                                class=" px-4 py-5 sm:p-6 text-center"
+                                :class="{'bg-red-200' : tiker.price === '-'}"
+                        >
                             <dt class="text-sm font-medium text-gray-500 truncate">
                                 {{tiker.name}} - USD
                             </dt>
@@ -117,18 +144,14 @@
                 <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
                     {{selectTiker.name}} - USD
                 </h3>
-                <div class="flex items-end border-gray-600 border-b border-l h-64">
+                <div
+                    class="flex items-end border-gray-600 border-b border-l h-64"
+                    ref="graph">
                     <div
+                        v-for="bar in normolizedGrapth"
+                        :key="bar"
+                        :style="{height: `${bar}%`}"
                         class="bg-purple-800 border w-10 h-24"
-                    ></div>
-                    <div
-                        class="bg-purple-800 border w-10 h-32"
-                    ></div>
-                    <div
-                        class="bg-purple-800 border w-10 h-48"
-                    ></div>
-                    <div
-                        class="bg-purple-800 border w-10 h-16"
                     ></div>
                 </div>
                 <button
@@ -164,6 +187,9 @@
 </template>
 
 <script>
+import {subscribeToTiker, unsubscribeFromTiker} from "@/api";
+// import {listOfCoin} from "@/coinlist";
+
 export default {
     data() {
         return {
@@ -175,41 +201,198 @@ export default {
 
             selectTiker: null,
             selOverTiker: null,
+
+            graph: [],
+            maxGrapthElements: 0,
+
+            page: 1,
+            filter: '',
+
+            coinList: [],
+
+            loadGif: true,
         }
     },
 
-    mounted() {
-        this.tikers = JSON.parse(localStorage.getItem('cryptonomicon-list'));
+    beforeCreate() {
+        window.setTimeout(() => {
+            this.loadGif = false
+        }, 1000)
     },
 
+    created() {
+        const urlData = Object.fromEntries(new URL(window.location).searchParams.entries());
+
+        if (urlData.filter) {
+            this.filter = urlData.filter
+        }
+
+        if (urlData.page) {
+            this.page = +urlData.page
+        }
+
+        this.tikers = JSON.parse(localStorage.getItem('cryptonomicon-list'));
+
+        this.tikers.forEach(tkr => {
+            subscribeToTiker(tkr.name, (price) => {
+                this.updatePrice(tkr.name, price)
+            })
+        })
+    },
+
+    mounted() {
+        window.addEventListener('resize', this.findMaxGrapthElements)
+
+        const data =  fetch(
+            `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
+        )
+            .then(request => request.json())
+            .then(result => Object.keys(result.Data))
+
+        // data.then(values =>
+        //     Promise.all(values)
+        //         .then(val => {
+        //             this.coinList = val
+        //         })
+        // )
+
+        Promise.all([data])
+            .then(val => {
+                this.coinList = val[0]
+            })
+    },
+
+
     methods: {
+        findMaxGrapthElements() {
+            if (!this.$refs.graph) {
+                return;
+            }
+            this.maxGrapthElements = this.$refs.graph.clientWidth / 39;
+        },
+
+        updatePrice(tiker, price) {
+            this.tikers
+                .filter(tkr => tkr.name === tiker)
+                .forEach(tkr => {
+                    if (this.selectTiker?.name === tiker) {
+                        this.graph.push(price);
+
+                        if (!this.maxGrapthElements) {
+                            this.findMaxGrapthElements()
+                        }
+
+                        this.graph = this.graph.slice(-Math.trunc(this.maxGrapthElements))
+                    }
+                    tkr.price = price
+                })
+        },
+
         addTiker() {
             if (this.tiker === '') {
+                // subscribeToTiker
                 return;
             }
 
             const newTiker = {
-                name: this.tiker,
+                name: this.tiker.toUpperCase(),
                 price: '-',
             };
 
             this.tikers = [...this.tikers, newTiker];
+            subscribeToTiker(newTiker.name, (price) => {
+                this.updatePrice(newTiker.name, price)
+            })
             this.tiker = '';
 
             localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tikers))
+        },
+
+        addTikerFromTikerHelper(tkr) {
+            this.tiker = tkr;
+            this.addTiker()
         },
 
         delTiker(tiker) {
             this.tikers = this.tikers.filter(tkr => tkr !== tiker);
             this.selectTiker = (tiker === this.selectTiker) ? null: this.selectTiker;
 
+            unsubscribeFromTiker(tiker.name);
             localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tikers))
         }
     },
 
     computed: {
+        tikerHelper() {
+            if (!this.tiker) {
+                return [];
+            }
+
+            return this.coinList.filter(tkr => tkr.includes(this.tiker.toUpperCase())).slice(0, 4)
+        },
+
         checkSimilarTiker() {
-            return this.tikers.filter(tkr => tkr.name === this.tiker).length
+            return this.tikers.filter(tkr => tkr.name === this.tiker.toUpperCase()).length
+        },
+
+        normolizedGrapth() {
+            const minVal = Math.min(...this.graph);
+            const maxVal = Math.max(...this.graph);
+
+            if (minVal === maxVal) {
+                return this.graph.map(() => 50)
+            }
+
+            return this.graph.map(price => 5 + (price - minVal) * 95 / (maxVal - minVal))
+        },
+
+        startIndex() {
+            return (this.page - 1) * 6;
+        },
+
+        finishIndex() {
+            return this.page * 6
+        },
+
+        filteredTikers() {
+            return this.tikers.filter(tkr => tkr.name.includes(this.filter?.toUpperCase()))
+        },
+
+        pagindatedTikers() {
+            return this.filteredTikers.slice(this.startIndex, this.finishIndex)
+        },
+
+        hasNextPage() {
+            return (this.filteredTikers.length / 6) > this.page
+        },
+    },
+
+    watch: {
+        selectTiker() {
+            this.graph = [];
+        },
+
+        pagindatedTikers() {
+            if (this.page > 1 && !this.pagindatedTikers.length) {
+                this.page -= 1
+            }
+        },
+
+        page() {
+            window.history.pushState(
+                '',
+                '',
+                `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+            )
+        },
+
+        filter() {
+            // this.page = 1;
+            window.history.pushState(
+                '',
+                '',
+                `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+            )
         }
     }
 }
