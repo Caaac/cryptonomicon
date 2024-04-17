@@ -1,4 +1,4 @@
-# My first project on Vue3
+# My first project on Vue2
 ## "Сryptonomicon"
 
 ## Project setup
